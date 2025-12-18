@@ -1,7 +1,10 @@
 #! /usr/bin/env ruby
 # Configure session cookie to use root path (/) so all paths share the same session.
 # This prevents redirect loops caused by different paths having different session cookies.
-# This must run during initializer load time, not in to_prepare, to ensure it's set before sessions are used
+# This runs as a Rails initializer, so Rails.application.config is available
+
+# Set session cookie path to root
+# This must be set before any sessions are created
 Rails.application.config.session_options[:path] = '/'
 
 # Log that we've set the session path

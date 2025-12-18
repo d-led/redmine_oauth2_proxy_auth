@@ -118,6 +118,13 @@ Rails.application.config.to_prepare do
         User.current = user
         Rails.logger.info "[Proxyauth] auto_login_from_oauth2: Set session manually for #{user.login}"
       end
+      
+      # CRITICAL: Ensure session is marked as changed so it gets persisted
+      # The session middleware will handle writing it to the response
+      # We just need to ensure it's marked as dirty
+      if session.respond_to?(:loaded?) && !session.loaded?
+        session.load!
+      end
 
       # Verify the login worked
       # Don't reload User.current from session here - we just set it above

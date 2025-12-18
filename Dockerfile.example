@@ -1,0 +1,63 @@
+# Example Dockerfile for Redmine with OAuth2 Proxy Authentication
+# This shows how to install the redmine_oauth2_proxy_auth plugin and copy its initializers
+#
+# Based on official Redmine image
+ARG REDMINE_TAG=6.0
+
+FROM redmine:${REDMINE_TAG}
+
+# Update system packages and install build tools
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /usr/src/redmine
+
+# Clone redmine_oauth2_proxy_auth plugin
+# Repository: https://github.com/d-led/redmine_oauth2_proxy_auth
+# Check out specific ref (branch, tag, or SHA) if provided via build arg, otherwise use default branch
+ARG REDMINE_PROXYAUTH_REF=
+RUN if [ -n "$REDMINE_PROXYAUTH_REF" ]; then \
+      # For specific refs (branch/tag/SHA), clone full history to ensure ref is available \
+      git clone https://github.com/d-led/redmine_oauth2_proxy_auth.git /usr/src/redmine/plugins/redmine_proxyauth && \
+      cd /usr/src/redmine/plugins/redmine_proxyauth && \
+      git checkout "$REDMINE_PROXYAUTH_REF"; \
+    else \
+      # For default branch, use shallow clone for efficiency \
+      git clone --depth 1 https://github.com/d-led/redmine_oauth2_proxy_auth.git /usr/src/redmine/plugins/redmine_proxyauth; \
+    fi
+
+# Create temporary database.yml so sqlite3 gem gets installed (if using SQLite)
+# Adjust this based on your database setup
+RUN mkdir -p config && \
+    echo "production:" > config/database.yml && \
+    echo "  adapter: sqlite3" >> config/database.yml && \
+    echo "  database: /tmp/redmine.sqlite3" >> config/database.yml
+
+# Install plugin gems
+RUN bundle config set --local without 'development test' && \
+    bundle config set --local path '/usr/local/bundle' && \
+    bundle install --jobs 4 --retry 3
+
+# Remove temporary database.yml (your entrypoint should create the real one)
+RUN rm -f config/database.yml
+
+# CRITICAL: Copy initializers from the plugin to Redmine's config/initializers/
+# Rails does NOT auto-load initializers from plugin directories - they must be in config/initializers/
+# This ensures the OAuth2 proxy initializers are loaded by Rails' initializer system
+RUN if [ -d /usr/src/redmine/plugins/redmine_proxyauth/config/initializers ]; then \
+      mkdir -p /usr/src/redmine/config/initializers && \
+      cp -v /usr/src/redmine/plugins/redmine_proxyauth/config/initializers/*.rb /usr/src/redmine/config/initializers/ && \
+      echo "✅ Copied $(ls /usr/src/redmine/plugins/redmine_proxyauth/config/initializers/*.rb | wc -l) initializers from plugin to Redmine config/initializers/"; \
+    else \
+      echo "⚠️  Warning: Plugin initializers directory not found"; \
+    fi
+
+EXPOSE 3000
+
+# Your entrypoint script here
+# CMD ["bundle", "exec", "rails", "server", "-b", "0.0.0.0"]

@@ -19,6 +19,9 @@ Redmine::Plugin.register :redmine_oauth2_proxy_auth do
   # Original redmine_proxyauth had OIDC settings, but we use oauth2-proxy which handles OAuth2/OIDC
 end
 
-# Rails automatically loads initializers from plugins/PLUGIN_NAME/config/initializers/
-# The initializers will be loaded by Rails' initializer system automatically
-# No explicit loading needed - Rails handles this for plugin directories
+# Log plugin loading
+Rails.logger.info "[OAuth2 Proxy Auth] Plugin registered: redmine_oauth2_proxy_auth v0.1.0" if defined?(Rails.logger)
+
+# Note: Initializers are in config/initializers/ and will be copied to Redmine's config/initializers/
+# by the Dockerfile. Rails does NOT auto-load initializers from plugin directories.
+# The initializers must be in the main config/initializers/ directory to be loaded by Rails.
