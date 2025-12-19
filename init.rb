@@ -54,9 +54,13 @@ Rails.application.config.action_dispatch.x_forwarded_for = true
 
 # Auto-login from OAuth2 proxy headers
 # This runs before other filters to ensure User.current is set before session_expiration checks
+Rails.logger.info "[OAuth2 Proxy Auth] Setting up auto-login from OAuth2 headers" if defined?(Rails.logger)
+
 Rails.application.config.to_prepare do
+  Rails.logger.info "[OAuth2 Proxy Auth] to_prepare block executing for auto-login" if defined?(Rails.logger)
   next unless defined?(ApplicationController) && defined?(User)
 
+  Rails.logger.info "[OAuth2 Proxy Auth] ApplicationController and User are defined, patching ApplicationController" if defined?(Rails.logger)
   ApplicationController.class_eval do
     before_action :auto_login_from_oauth2, prepend: true
 
@@ -177,6 +181,7 @@ Rails.application.config.to_prepare do
       Rails.logger.error "[Proxyauth] Backtrace: #{e.backtrace.first(10).join(', ')}" if e.backtrace
     end
   end
+  Rails.logger.info "[OAuth2 Proxy Auth] Auto-login before_action registered on ApplicationController" if defined?(Rails.logger)
 end
 
 # Auto-promote users to admin based on email list
