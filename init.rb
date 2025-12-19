@@ -19,9 +19,11 @@ Rails.logger.info "[OAuth2 Proxy Auth] Plugin registered: redmine_oauth2_proxy_a
 
 # Configure session cookie path to root (/) so all paths share the same session
 # This prevents redirect loops caused by different paths having different session cookies
-# This must be set early, before any sessions are created
-Rails.application.config.session_options[:path] = '/'
-Rails.logger.info "[OAuth2 Proxy Auth] Session cookie path set to '/' to prevent redirect loops" if defined?(Rails.logger)
+# This must be set directly (not in to_prepare) to ensure it runs before any sessions are created
+if defined?(Rails) && Rails.application && Rails.application.config
+  Rails.application.config.session_options[:path] = '/'
+  Rails.logger.info "[OAuth2 Proxy Auth] Session cookie path set to '/' to prevent redirect loops" if defined?(Rails.logger)
+end
 
 # Configure trusted proxy headers (for Docker/oauth2-proxy setup)
 # This allows Redmine to read X-Forwarded-* and X-Auth-Request-* headers
@@ -54,19 +56,31 @@ Rails.application.config.action_dispatch.x_forwarded_for = true
 
 # Auto-login from OAuth2 proxy headers
 # This runs before other filters to ensure User.current is set before session_expiration checks
+# Use to_prepare (standard Rails plugin pattern) to ensure ApplicationController is loaded
 Rails.logger.info "[OAuth2 Proxy Auth] Setting up auto-login from OAuth2 headers" if defined?(Rails.logger)
 
 Rails.application.config.to_prepare do
   Rails.logger.info "[OAuth2 Proxy Auth] to_prepare block executing for auto-login" if defined?(Rails.logger)
-  next unless defined?(ApplicationController) && defined?(User)
+  
+  unless defined?(ApplicationController) && defined?(User)
+    Rails.logger.warn "[OAuth2 Proxy Auth] ApplicationController or User not defined yet, skipping auto-login setup" if defined?(Rails.logger)
+    next
+  end
 
-  Rails.logger.info "[OAuth2 Proxy Auth] ApplicationController and User are defined, patching ApplicationController" if defined?(Rails.logger)
-  ApplicationController.class_eval do
-    before_action :auto_login_from_oauth2, prepend: true
+  # Check if already patched to avoid duplicate registrations
+  already_patched = ApplicationController.private_instance_methods(false).include?(:auto_login_from_oauth2)
+  
+  unless already_patched
+    Rails.logger.info "[OAuth2 Proxy Auth] Registering auto_login_from_oauth2 before_action" if defined?(Rails.logger)
+    ApplicationController.class_eval do
+      before_action :auto_login_from_oauth2, prepend: true
 
     private
 
     def auto_login_from_oauth2
+      # Log that the before_action is running (at least on first few requests for debugging)
+      Rails.logger.debug "[Proxyauth] auto_login_from_oauth2: Running on #{request.fullpath}" if defined?(Rails.logger)
+      
       # Take the email from the trusted proxy headers first
       email = request.headers['X-Auth-Request-Email'] ||
               request.headers['X-Forwarded-Email']
@@ -162,12 +176,12 @@ Rails.application.config.to_prepare do
         Rails.logger.info "[Proxyauth] auto_login_from_oauth2: Set session manually for #{user.login}"
       end
       
-      # CRITICAL: Ensure session is marked as changed so it gets persisted
-      # The session middleware will handle writing it to the response
-      # We just need to ensure it's marked as dirty
-      if session.respond_to?(:loaded?) && !session.loaded?
-        session.load!
-      end
+      # CRITICAL: Ensure session is persisted by marking it as changed
+      # Rails will automatically write the session cookie if the session is modified
+      session[:updated_at] = Time.now.to_i if session.respond_to?(:[]=)
+      
+      # Force session to be written by accessing it (this marks it as dirty)
+      session.load! if session.respond_to?(:load!) && !session.loaded?
 
       # Verify the login worked
       # Don't reload User.current from session here - we just set it above
@@ -180,8 +194,10 @@ Rails.application.config.to_prepare do
       Rails.logger.error "[Proxyauth] auto_login_from_oauth2 error: #{e.class}: #{e.message}"
       Rails.logger.error "[Proxyauth] Backtrace: #{e.backtrace.first(10).join(', ')}" if e.backtrace
     end
+    Rails.logger.info "[OAuth2 Proxy Auth] Auto-login before_action registered on ApplicationController" if defined?(Rails.logger)
+  else
+    Rails.logger.info "[OAuth2 Proxy Auth] Auto-login before_action already registered, skipping" if defined?(Rails.logger)
   end
-  Rails.logger.info "[OAuth2 Proxy Auth] Auto-login before_action registered on ApplicationController" if defined?(Rails.logger)
 end
 
 # Auto-promote users to admin based on email list
