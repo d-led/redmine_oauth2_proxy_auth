@@ -1,5 +1,15 @@
 # Debug: Log incoming headers to help troubleshoot proxy header issues
-Rails.application.config.to_prepare do
+#
+# IMPORTANT: Rails does NOT automatically load initializers from plugin directories.
+# This file must be copied to Redmine's main config/initializers/ directory to be executed.
+# If this file is in the plugin directory, it will NOT run.
+
+# Guard: Only run if this file is in the main config/initializers/ directory
+# (not in the plugin's config/initializers/ subdirectory)
+if __FILE__.include?('plugins/') && __FILE__.include?('config/initializers')
+  Rails.logger.warn "[Debug Headers] Initializer is in plugin directory and will not be loaded. Copy to config/initializers/ to enable." if defined?(Rails.logger)
+else
+  Rails.application.config.to_prepare do
   # Always log in production to help debug proxy issues
   if Rails.env.production?
     ActionController::Base.class_eval do
@@ -34,6 +44,7 @@ Rails.application.config.to_prepare do
         end
       end
     end
+  end
   end
 end
 

@@ -15,11 +15,18 @@
 # - We run before other filters (prepend: true) so that session_expiration
 #   sees a logged-in user when oauth2-proxy says the request is authenticated.
 
-# Execute immediately when initializer is loaded, not in to_prepare
-# This ensures it runs in production and before requests are handled
-Rails.logger.info "[Proxyauth] Loading auto_login_from_oauth2 initializer" if defined?(Rails.logger)
+# IMPORTANT: Rails does NOT automatically load initializers from plugin directories.
+# This file must be copied to Redmine's main config/initializers/ directory to be executed.
+# If this file is in the plugin directory, it will NOT run.
 
-if defined?(Rails) && Rails.application
+# Guard: Only run if this file is in the main config/initializers/ directory
+# (not in the plugin's config/initializers/ subdirectory)
+if __FILE__.include?('plugins/') && __FILE__.include?('config/initializers')
+  Rails.logger.warn "[Proxyauth] Initializer is in plugin directory and will not be loaded. Copy to config/initializers/ to enable." if defined?(Rails.logger)
+elsif defined?(Rails) && Rails.application
+  # Execute immediately when initializer is loaded, not in to_prepare
+  # This ensures it runs in production and before requests are handled
+  Rails.logger.info "[Proxyauth] Loading auto_login_from_oauth2 initializer" if defined?(Rails.logger)
   Rails.application.config.to_prepare do
     Rails.logger.info "[Proxyauth] to_prepare block executing for auto_login_from_oauth2" if defined?(Rails.logger)
     next unless defined?(ApplicationController) && defined?(User)
@@ -145,5 +152,7 @@ if defined?(Rails) && Rails.application
         Rails.logger.error "[Proxyauth] Backtrace: #{e.backtrace.first(10).join(', ')}" if e.backtrace
       end
   end
+else
+  Rails.logger.warn "[Proxyauth] auto_login_from_oauth2 initializer skipped (Rails not available or file in plugin directory)" if defined?(Rails.logger)
 end
 

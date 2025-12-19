@@ -48,7 +48,7 @@ The plugin includes initializers for:
 
 ### Docker Installation
 
-When using Docker, copy the initializers during the build process:
+When using Docker, copy the initializers during the build process. The plugin includes initializers in `config/initializers/` that must be copied to Redmine's main `config/initializers/` directory:
 
 ```dockerfile
 # Clone the plugin
@@ -58,10 +58,14 @@ RUN git clone https://github.com/d-led/redmine_oauth2_proxy_auth.git /usr/src/re
 # Rails does NOT auto-load initializers from plugin directories - they must be in config/initializers/
 RUN if [ -d /usr/src/redmine/plugins/redmine_proxyauth/config/initializers ]; then \
       mkdir -p /usr/src/redmine/config/initializers && \
-      cp /usr/src/redmine/plugins/redmine_proxyauth/config/initializers/*.rb /usr/src/redmine/config/initializers/ && \
-      echo "Copied initializers from plugin to Redmine config/initializers/"; \
+      cp -v /usr/src/redmine/plugins/redmine_proxyauth/config/initializers/*.rb /usr/src/redmine/config/initializers/ && \
+      echo "✅ Copied $(ls /usr/src/redmine/plugins/redmine_proxyauth/config/initializers/*.rb | wc -l) initializers from plugin to Redmine config/initializers/"; \
+    else \
+      echo "⚠️  Warning: Plugin initializers directory not found"; \
     fi
 ```
+
+**Important:** The plugin directory name in Redmine is `redmine_proxyauth` (even though the GitHub repository is `redmine_oauth2_proxy_auth`). Make sure your paths match this.
 
 See `Dockerfile.example` for a complete example.
 
@@ -71,7 +75,10 @@ If installing manually (not using Docker), copy the initializers after installin
 
 ```bash
 # After installing the plugin to plugins/redmine_proxyauth/
+# Make sure the plugin directory is named 'redmine_proxyauth'
 cp plugins/redmine_proxyauth/config/initializers/*.rb config/initializers/
 ```
 
 The initializers will then be loaded automatically by Rails on the next application start.
+
+**Note:** The plugin directory must be named `redmine_proxyauth` in your Redmine installation (this matches the plugin's internal name, even though the GitHub repository is `redmine_oauth2_proxy_auth`).
