@@ -30,6 +30,7 @@ If the required headers are missing, users will be redirected to an error page.
 
 Configuration is done via environment variables:
 - `REDMINE_ADMIN_EMAILS`: Comma-separated list of emails to auto-promote to admin
+- `TRUSTED_PROXY_IPS`: Comma-separated list of IP addresses or CIDR ranges to trust as proxies (e.g., `"10.0.0.0/8,172.16.0.0/12"`). If not set, defaults to common private network ranges suitable for Docker/local development.
 - `DEBUG_PROXY_HEADERS`: Set to "true" to enable debug logging of proxy headers
 
 ## Installation
