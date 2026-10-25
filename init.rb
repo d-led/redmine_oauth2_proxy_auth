@@ -1,4 +1,5 @@
 require_relative 'lib/redmine_proxyauth/version'
+require_relative 'lib/redmine_proxyauth/unique_login'
 require_relative 'lib/redmine_proxyauth/account_controller_patch'
 
 Redmine::Plugin.register :redmine_oauth2_proxy_auth do

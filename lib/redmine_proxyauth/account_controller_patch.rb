@@ -138,7 +138,7 @@ module RedmineProxyauth
             mail: email,
             firstname: given_name.presence || email.split('@').first,
             lastname: default_lastname,
-            login: unique_login(email),
+            login: RedmineProxyauth::UniqueLogin.for(email),
             language: Setting.default_language,
             status: User::STATUS_ACTIVE
           )
@@ -197,20 +197,6 @@ module RedmineProxyauth
         logout_user
         redirect_to "/oauth2/sign_out?rd=#{CGI.escape(home_url)}"
       end
-    end
-
-    private
-
-    # Redmine requires a unique login, but the local part of an e-mail address
-    # is only unique within its domain: john@a.example and john@b.example would
-    # otherwise fight over "john" and the second account could never be created.
-    def unique_login(email)
-      local_part = email.to_s.split('@').first.to_s.gsub(/[^a-zA-Z0-9\-_@.]/, '-').downcase
-      local_part = 'user' if local_part.blank?
-
-      candidates = [local_part, email.to_s.downcase] + (1..9).map { |suffix| "#{local_part}-#{suffix}" }
-      candidates.find { |candidate| !User.exists?(login: candidate) } ||
-        "#{local_part}-#{SecureRandom.hex(4)}"
     end
   end
 end
