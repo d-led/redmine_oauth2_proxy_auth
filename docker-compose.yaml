@@ -1,24 +1,40 @@
-version: '3'
-
+# Local playground: Redmine with this plugin, MySQL and Adminer.
+#
+# Run it from a directory that holds (or links) this plugin as
+# ./redmine/plugins/redmine_proxyauth, i.e.
+#
+#   mkdir -p redmine/plugins
+#   ln -s ../path/to/redmine_proxyauth redmine/plugins/redmine_proxyauth
+#   docker compose up
+#
+# Rails does not load initializers from plugin directories, so the entrypoint
+# copies them into config/initializers/ before Redmine starts - that step is
+# mandatory for the plugin to work at all.
 services:
   redmine:
-    image: redmine:latest
+    image: redmine:6.0
     ports:
       - 3000:3000
     volumes:
-      - ./redmine/app:/usr/src/redmine/app
-      - ./redmine/files:/usr/src/redmine/files
-      - ./redmine/plugins:/usr/src/redmine/plugins
+      - ./redmine/plugins:/usr/src/redmine/plugins:ro
+      - redmine_files:/usr/src/redmine/files
     environment:
       REDMINE_DB_MYSQL: mysql
       REDMINE_DB_USERNAME: redmine
       REDMINE_DB_PASSWORD: pass
       REDMINE_SECRET_KEY_BASE: supersecretkey
+      # Verbose per-request proxy header logging (off by default)
+      DEBUG_PROXY_HEADERS: "false"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - cp -v /usr/src/redmine/plugins/redmine_proxyauth/config/initializers/*.rb /usr/src/redmine/config/initializers/ && exec /docker-entrypoint.sh "$$@"
+      - --
     depends_on:
       - mysql
 
   mysql:
-    image: mysql:latest
+    image: mysql:8.4
     environment:
       MYSQL_ROOT_PASSWORD: pass
       MYSQL_DATABASE: redmine
@@ -28,11 +44,12 @@ services:
       - db_data:/var/lib/mysql
 
   adminer:
-    image: adminer:latest
+    image: adminer:4.8
     ports:
       - 8080:8080
     depends_on:
       - mysql
 
 volumes:
+  redmine_files:
   db_data:

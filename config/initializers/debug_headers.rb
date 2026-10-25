@@ -10,8 +10,9 @@ if __FILE__.include?('plugins/') && __FILE__.include?('config/initializers')
   Rails.logger.warn "[Debug Headers] Initializer is in plugin directory and will not be loaded. Copy to config/initializers/ to enable." if defined?(Rails.logger)
 else
   Rails.application.config.to_prepare do
-  # Always log in production to help debug proxy issues
-  if Rails.env.production?
+  # Verbose per-request header logging is opt-in (DEBUG_PROXY_HEADERS), because
+  # it runs on every request.
+  if Rails.env.production? && ENV['DEBUG_PROXY_HEADERS'].to_s.downcase == 'true'
     ActionController::Base.class_eval do
       before_action :log_proxy_headers, if: -> { Rails.logger }
       
